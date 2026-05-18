@@ -1,9 +1,11 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
+import type { RouterContext } from "./routes/__root"
 
 export function createRouter() {
   return createTanStackRouter({
     routeTree,
+    context: { user: null } satisfies RouterContext,
     defaultPreload: "intent",
     scrollRestoration: true,
   })

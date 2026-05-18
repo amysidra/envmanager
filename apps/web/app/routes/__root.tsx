@@ -1,10 +1,15 @@
 import {
-  createRootRoute,
+  createRootRouteWithContext,
   HeadContent,
   Outlet,
   Scripts,
 } from "@tanstack/react-router"
 import type { ReactNode } from "react"
+import { $getUser, type User } from "../lib/server-fns"
+
+export interface RouterContext {
+  user: User | null
+}
 
 function NotFound() {
   return (
@@ -14,7 +19,7 @@ function NotFound() {
   )
 }
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -22,6 +27,10 @@ export const Route = createRootRoute({
       { title: "Env Manager" },
     ],
   }),
+  beforeLoad: async () => {
+    const user = await $getUser()
+    return { user }
+  },
   notFoundComponent: NotFound,
   component: RootComponent,
 })

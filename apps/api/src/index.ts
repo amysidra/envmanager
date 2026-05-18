@@ -10,7 +10,13 @@ type AppVariables = { user: { id: string; email: string; name: string } }
 const app = new Hono<{ Variables: AppVariables }>()
 
 app.use("*", logger())
-app.use("*", cors({ origin: "http://localhost:3000", credentials: true }))
+app.use(
+  "*",
+  cors({
+    origin: (origin) => (!origin || origin.startsWith("http://localhost") ? origin : null),
+    credentials: true,
+  }),
+)
 
 // Protect all /api/* routes — skip only auth endpoints and health check
 app.use("/api/*", async (c, next) => {
