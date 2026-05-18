@@ -8,8 +8,9 @@ export const $getUser = createServerFn({ method: "GET" }).handler(
     try {
       const request = getRequest()
       const cookie = request.headers.get("cookie") ?? ""
+      const API_URL = import.meta.env.VITE_API_URL as string
 
-      const res = await fetch("http://localhost:3001/api/auth/me", {
+      const res = await fetch(`${API_URL}/api/auth/me`, {
         headers: cookie ? { Cookie: cookie } : {},
       })
       if (!res.ok) return null

@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { setCookie, deleteCookie } from "hono/cookie"
 import bcrypt from "bcryptjs"
+import { registerSchema, loginSchema } from "@envmanager/types"
 import { prisma } from "../lib/prisma"
 import { signToken } from "../lib/jwt"
 import { authMiddleware } from "../middleware/auth"
@@ -19,16 +20,15 @@ const COOKIE_OPTS = {
 }
 
 auth.post("/register", async (c) => {
-  const body = await c.req.json<{ name?: string; email?: string; password?: string }>()
-  const { name, email, password } = body
+  const body = await c.req.json()
+  const result = registerSchema.safeParse(body)
 
-  if (!name || !email || !password) {
-    return c.json({ error: "VALIDATION_ERROR", message: "name, email, and password are required" }, 400)
+  if (!result.success) {
+    const message = result.error.issues[0]?.message ?? "Invalid input"
+    return c.json({ error: "VALIDATION_ERROR", message }, 400)
   }
 
-  if (password.length < 8) {
-    return c.json({ error: "VALIDATION_ERROR", message: "Password must be at least 8 characters" }, 400)
-  }
+  const { name, email, password } = result.data
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) {
@@ -45,12 +45,15 @@ auth.post("/register", async (c) => {
 })
 
 auth.post("/login", async (c) => {
-  const body = await c.req.json<{ email?: string; password?: string }>()
-  const { email, password } = body
+  const body = await c.req.json()
+  const result = loginSchema.safeParse(body)
 
-  if (!email || !password) {
-    return c.json({ error: "VALIDATION_ERROR", message: "email and password are required" }, 400)
+  if (!result.success) {
+    const message = result.error.issues[0]?.message ?? "Invalid input"
+    return c.json({ error: "VALIDATION_ERROR", message }, 400)
   }
+
+  const { email, password } = result.data
 
   const user = await prisma.user.findUnique({ where: { email } })
   // Always compare to prevent email enumeration via timing

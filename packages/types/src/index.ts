@@ -1,3 +1,5 @@
+export * from "./schemas/auth"
+
 export type Role = "OWNER" | "MEMBER"
 export type Severity = "high" | "medium" | "low"
 
