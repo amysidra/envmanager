@@ -1,10 +1,18 @@
 import {
   createRootRoute,
+  HeadContent,
   Outlet,
-  ScrollRestoration,
+  Scripts,
 } from "@tanstack/react-router"
-import { Meta, Scripts } from "@tanstack/start"
 import type { ReactNode } from "react"
+
+function NotFound() {
+  return (
+    <div>
+      <h1>404 - Page Not Found</h1>
+    </div>
+  )
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -14,6 +22,7 @@ export const Route = createRootRoute({
       { title: "Env Manager" },
     ],
   }),
+  notFoundComponent: NotFound,
   component: RootComponent,
 })
 
@@ -29,11 +38,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
       <head>
-        <Meta />
+        <HeadContent />
       </head>
       <body>
         {children}
-        <ScrollRestoration />
         <Scripts />
       </body>
     </html>

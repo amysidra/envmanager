@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vinxi dev",
-    "build": "vinxi build",
-    "start": "vinxi start"
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.4",
-    "@tanstack/start": "^1.120.20",
+    "@tanstack/react-start": "^1.168.6",
+    "@vitejs/plugin-react": "^6.0.2",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "vinxi": "^0.5.11"
+    "vite": "^8.0.13"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

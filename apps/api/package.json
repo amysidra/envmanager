@@ -4,21 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch --import tsx/esm src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "with-env": "dotenv -e .env --",
+    "db:generate": "pnpm with-env prisma generate",
+    "db:migrate": "pnpm with-env prisma migrate dev",
+    "db:studio": "pnpm with-env prisma studio"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.2",
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.8.0",
     "hono": "^4.12.19"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
-    "prisma": "^6.19.3",
+    "dotenv-cli": "^11.0.0",
+    "prisma": "^7.8.0",
     "tsx": "^4.22.1",
     "typescript": "^6.0.3"
   }
