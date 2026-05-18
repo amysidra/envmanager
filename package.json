@@ -1,0 +1,20 @@
+{
+  "name": "envmanager",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"@envmanager/*\" dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @envmanager/api db:generate",
+    "db:migrate": "pnpm --filter @envmanager/api db:migrate",
+    "db:studio": "pnpm --filter @envmanager/api db:studio"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}
