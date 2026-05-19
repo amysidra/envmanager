@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useRouteContext, useRouter } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate, useRouteContext, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { api } from "../../../lib/api"
 import type { Project } from "../../../lib/server-fns"
@@ -216,9 +216,9 @@ function ProjectDetail() {
 
   if (loading) {
     return (
-      <main style={s.page}>
+      <div style={s.root}>
         <p style={s.loadingText}>Loading…</p>
-      </main>
+      </div>
     )
   }
 
@@ -227,27 +227,33 @@ function ProjectDetail() {
   const isOwner = project.role === "OWNER"
 
   return (
-    <main style={s.page}>
-      <header style={s.header}>
-        <a href="/dashboard" style={s.back}>← Back to Dashboard</a>
-        <h1 style={s.logo}>Env Manager</h1>
-        <div style={s.userInfo}>
-          <span style={s.userName}>{user?.name}</span>
+    <div style={s.root}>
+      <nav style={s.nav}>
+        <div style={s.navLeft}>
+          <span style={s.navLogo}>Env Manager</span>
+          <span style={s.navSep}>/</span>
+          <span style={s.navProject}>{project.name}</span>
+        </div>
+        <div style={s.navRight}>
+          <span style={s.navUser}>{user?.name}</span>
           <button onClick={() => setConfirmLogout(true)} style={s.logoutBtn}>Logout</button>
         </div>
-      </header>
+      </nav>
 
-      <section style={s.content}>
-        <div style={s.titleRow}>
-          <div style={s.titleLeft}>
-            <h2 style={s.projectName}>{project.name}</h2>
+      <main style={s.main}>
+        <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "1rem" }}>
+          <Link to="/dashboard" style={s.navBack}>← Dashboard</Link>
+        </div>
+        <div style={s.pageHeader}>
+          <div style={s.pageHeaderLeft}>
+            <h1 style={s.pageTitle}>{project.name}</h1>
             <span style={project.role === "OWNER" ? s.badgeOwner : s.badgeMember}>
               {project.role === "OWNER" ? "Owner" : "Member"}
             </span>
           </div>
           {isOwner && (
             <button onClick={() => setConfirmDelete(true)} style={s.deleteBtn}>
-              Delete Project
+              Delete project
             </button>
           )}
         </div>
@@ -366,7 +372,7 @@ function ProjectDetail() {
               )
             ) : (
               <>
-                <p style={s.envUploaded}>Env file uploaded</p>
+                <p style={s.envUploaded}>● Env file uploaded</p>
                 <div style={s.envActions}>
                   <button onClick={handleViewEnv} disabled={loadingContent} style={s.envActionBtn}>
                     {loadingContent
@@ -405,7 +411,7 @@ function ProjectDetail() {
             <p style={s.hint}>No scans yet.</p>
           </div>
         </div>
-      </section>
+      </main>
 
       {/* Delete project modal */}
       {confirmDelete && (
@@ -494,104 +500,137 @@ function ProjectDetail() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   )
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: "#f9fafb", fontFamily: "system-ui, sans-serif" },
-  loadingText: { textAlign: "center", padding: "4rem", color: "#6b7280" },
-  header: {
+  root: { minHeight: "100vh", background: "#f9fafb", fontFamily: "system-ui, sans-serif" },
+  loadingText: { textAlign: "center", padding: "6rem", color: "#9ca3af", fontSize: "0.9rem" },
+
+  // Nav
+  nav: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     padding: "1rem 2rem",
-    background: "#fff",
-    borderBottom: "1px solid #e5e7eb",
+    background: "rgba(255,255,255,0.95)",
+    backdropFilter: "blur(8px)",
+    borderBottom: "1px solid #f3f4f6",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
   },
-  back: { fontSize: "0.875rem", color: "#2563eb", textDecoration: "none", fontWeight: 500 },
-  logo: { margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "#111827" },
-  userInfo: { display: "flex", alignItems: "center", gap: "1rem" },
-  userName: { fontSize: "0.875rem", color: "#6b7280" },
+  navLeft: { display: "flex", alignItems: "center", gap: "0.5rem" },
+  navLogo: { fontWeight: 800, fontSize: "1.125rem", color: "#111827", letterSpacing: "-0.02em" },
+  navSep: { color: "#d1d5db", fontSize: "1rem" },
+  navProject: { fontSize: "0.9rem", fontWeight: 600, color: "#6b7280", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  navRight: { display: "flex", alignItems: "center", gap: "0.875rem" },
+  navBack: { fontSize: "0.8rem", color: "#6b7280", textDecoration: "none", fontWeight: 500 },
+  navUser: { fontSize: "0.875rem", color: "#9ca3af" },
   logoutBtn: {
-    padding: "0.4rem 0.9rem",
-    background: "#fee2e2",
+    padding: "0.35rem 0.875rem",
+    background: "transparent",
     color: "#dc2626",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "0.875rem",
+    border: "1px solid #fecaca",
+    borderRadius: "8px",
+    fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
   },
-  content: { padding: "2rem", maxWidth: "800px", margin: "0 auto" },
-  titleRow: {
+
+  // Page layout
+  main: { maxWidth: "800px", margin: "0 auto", padding: "2.5rem 2rem" },
+  pageHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "1.5rem",
+    alignItems: "flex-start",
+    marginBottom: "2rem",
   },
-  titleLeft: { display: "flex", alignItems: "center", gap: "0.75rem" },
-  projectName: { margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "#111827" },
+  pageHeaderLeft: { display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" },
+  pageTitle: {
+    margin: 0,
+    fontSize: "1.75rem",
+    fontWeight: 800,
+    color: "#111827",
+    letterSpacing: "-0.03em",
+  },
   badgeOwner: {
     padding: "0.2rem 0.6rem",
     background: "#dcfce7",
-    color: "#16a34a",
+    color: "#15803d",
     borderRadius: "99px",
-    fontSize: "0.75rem",
-    fontWeight: 600,
+    fontSize: "0.7rem",
+    fontWeight: 700,
   },
   badgeMember: {
     padding: "0.2rem 0.6rem",
     background: "#f3f4f6",
     color: "#6b7280",
     borderRadius: "99px",
-    fontSize: "0.75rem",
-    fontWeight: 600,
+    fontSize: "0.7rem",
+    fontWeight: 700,
   },
   deleteBtn: {
     padding: "0.5rem 1rem",
-    background: "#fee2e2",
+    background: "transparent",
     color: "#dc2626",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "0.875rem",
+    border: "1px solid #fecaca",
+    borderRadius: "8px",
+    fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
+    flexShrink: 0,
   },
+
+  // Cards
   grid: { display: "flex", flexDirection: "column", gap: "1rem" },
   card: {
     background: "#fff",
     border: "1px solid #e5e7eb",
-    borderRadius: "8px",
-    padding: "1.25rem 1.5rem",
+    borderRadius: "12px",
+    padding: "1.5rem",
   },
-  cardTitle: { margin: "0 0 0.75rem", fontSize: "1rem", fontWeight: 700, color: "#111827" },
-  // Members styles
-  memberRow: { display: "flex", alignItems: "center", gap: "0.6rem" },
+  cardTitle: {
+    margin: "0 0 1rem",
+    fontSize: "0.9rem",
+    fontWeight: 700,
+    color: "#111827",
+    letterSpacing: "-0.01em",
+  },
+
+  // Members
+  memberRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.5rem 0",
+    borderBottom: "1px solid #f9fafb",
+  },
   memberAvatar: {
     width: "2rem",
     height: "2rem",
-    borderRadius: "50%",
-    background: "#e0e7ff",
-    color: "#4f46e5",
+    borderRadius: "8px",
+    background: "#111827",
+    color: "#fff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "0.8rem",
-    fontWeight: 700,
+    fontSize: "0.75rem",
+    fontWeight: 800,
     flexShrink: 0,
   },
   memberMeta: { display: "flex", flexDirection: "column", flex: 1, minWidth: 0 },
-  memberName: { fontSize: "0.875rem", fontWeight: 600, color: "#111827" },
+  memberName: { fontSize: "0.85rem", fontWeight: 600, color: "#111827" },
   memberEmail: { fontSize: "0.75rem", color: "#9ca3af" },
-  memberJoined: { fontSize: "0.75rem", color: "#9ca3af", whiteSpace: "nowrap" },
+  memberJoined: { fontSize: "0.72rem", color: "#d1d5db", whiteSpace: "nowrap" },
   removeBtn: {
-    padding: "0.2rem 0.6rem",
-    background: "#fee2e2",
+    padding: "0.25rem 0.625rem",
+    background: "transparent",
     color: "#dc2626",
-    border: "none",
+    border: "1px solid #fecaca",
     borderRadius: "6px",
-    fontSize: "0.75rem",
+    fontSize: "0.72rem",
     fontWeight: 600,
     cursor: "pointer",
     flexShrink: 0,
@@ -605,140 +644,162 @@ const s: Record<string, React.CSSProperties> = {
   },
   inviteInput: {
     flex: 1,
-    padding: "0.4rem 0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
+    padding: "0.5rem 0.75rem",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
     fontSize: "0.875rem",
     outline: "none",
+    color: "#111827",
   },
   inviteBtn: {
-    padding: "0.4rem 1rem",
-    background: "#2563eb",
+    padding: "0.5rem 1rem",
+    background: "#111827",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
-    fontSize: "0.875rem",
-    fontWeight: 600,
+    borderRadius: "8px",
+    fontSize: "0.8rem",
+    fontWeight: 700,
     cursor: "pointer",
     flexShrink: 0,
   },
-  successMsg: { margin: "0.5rem 0 0", fontSize: "0.8rem", color: "#16a34a" },
-  errorMsg: { margin: "0.5rem 0 0", fontSize: "0.8rem", color: "#dc2626" },
-  // Env file styles
+  successMsg: { margin: "0.625rem 0 0", fontSize: "0.8rem", color: "#16a34a" },
+  errorMsg: { margin: "0.625rem 0 0", fontSize: "0.8rem", color: "#dc2626" },
+
+  // Env file
   dropzone: {
-    border: "2px dashed #d1d5db",
-    borderRadius: "8px",
-    padding: "1.5rem",
+    border: "2px dashed #e5e7eb",
+    borderRadius: "10px",
+    padding: "2rem 1.5rem",
     textAlign: "center",
     background: "#f9fafb",
     cursor: "default",
   },
-  dropzoneText: { margin: "0 0 0.5rem", fontSize: "0.875rem", color: "#6b7280" },
+  dropzoneText: { margin: "0 0 0.75rem", fontSize: "0.875rem", color: "#9ca3af" },
   fileLabel: {
     display: "inline-block",
-    padding: "0.35rem 0.9rem",
-    background: "#e0e7ff",
-    color: "#4f46e5",
-    borderRadius: "6px",
+    padding: "0.4rem 1rem",
+    background: "#111827",
+    color: "#fff",
+    borderRadius: "8px",
     fontSize: "0.8rem",
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
   },
   textarea: {
     width: "100%",
-    padding: "0.5rem 0.75rem",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
+    padding: "0.625rem 0.75rem",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
     fontSize: "0.8rem",
     fontFamily: "monospace",
     outline: "none",
     resize: "vertical",
     boxSizing: "border-box",
+    color: "#111827",
+    background: "#fff",
   },
   replaceWarning: {
     margin: "0 0 0.75rem",
-    fontSize: "0.875rem",
+    fontSize: "0.8rem",
     color: "#92400e",
     background: "#fffbeb",
-    padding: "0.5rem 0.75rem",
-    borderRadius: "6px",
+    padding: "0.5rem 0.875rem",
+    borderRadius: "8px",
     border: "1px solid #fde68a",
   },
-  envUploaded: { margin: "0 0 0.5rem", fontSize: "0.9rem", color: "#16a34a", fontWeight: 500 },
+  envUploaded: {
+    margin: "0 0 0.875rem",
+    fontSize: "0.85rem",
+    color: "#16a34a",
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
+    gap: "0.4rem",
+  },
   envActions: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
   envActionBtn: {
-    padding: "0.35rem 0.75rem",
-    background: "#f3f4f6",
+    padding: "0.4rem 0.875rem",
+    background: "#f9fafb",
     color: "#374151",
-    border: "none",
-    borderRadius: "6px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
     fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
   },
   deleteEnvBtn: {
-    padding: "0.35rem 0.75rem",
-    background: "#fee2e2",
+    padding: "0.4rem 0.875rem",
+    background: "transparent",
     color: "#dc2626",
-    border: "none",
-    borderRadius: "6px",
+    border: "1px solid #fecaca",
+    borderRadius: "8px",
     fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
   },
   codeBlock: {
-    background: "#1e1e2e",
-    color: "#cdd6f4",
-    padding: "1rem",
-    borderRadius: "8px",
-    fontSize: "0.8rem",
-    fontFamily: "monospace",
+    background: "#0d1117",
+    color: "#e6edf3",
+    padding: "1.25rem",
+    borderRadius: "10px",
+    fontSize: "0.78rem",
+    fontFamily: "ui-monospace, monospace",
     overflow: "auto",
-    maxHeight: "300px",
-    margin: "0.5rem 0 0",
+    maxHeight: "320px",
+    margin: 0,
     whiteSpace: "pre-wrap",
     wordBreak: "break-all",
+    lineHeight: 1.65,
   },
   hint: { margin: 0, fontSize: "0.85rem", color: "#9ca3af" },
-  // Shared modal/overlay styles
+
+  // Modals
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.4)",
+    background: "rgba(0,0,0,0.35)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 50,
+    backdropFilter: "blur(2px)",
   },
   modal: {
     background: "#fff",
-    borderRadius: "10px",
+    borderRadius: "12px",
     padding: "2rem",
     width: "100%",
     maxWidth: "420px",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+    border: "1px solid #e5e7eb",
   },
-  modalTitle: { margin: "0 0 0.75rem", fontSize: "1.25rem", fontWeight: 700, color: "#111827" },
-  modalBody: { margin: "0 0 1.5rem", fontSize: "0.9rem", color: "#374151", lineHeight: 1.6 },
-  modalActions: { display: "flex", justifyContent: "flex-end", gap: "0.75rem" },
+  modalTitle: {
+    margin: "0 0 0.3rem",
+    fontSize: "1.2rem",
+    fontWeight: 800,
+    color: "#111827",
+    letterSpacing: "-0.02em",
+  },
+  modalBody: { margin: "0 0 1.5rem", fontSize: "0.875rem", color: "#6b7280", lineHeight: 1.65 },
+  modalActions: { display: "flex", justifyContent: "flex-end", gap: "0.625rem" },
   cancelBtn: {
-    padding: "0.5rem 1rem",
-    background: "#f3f4f6",
+    padding: "0.55rem 1rem",
+    background: "#f9fafb",
     color: "#374151",
-    border: "none",
-    borderRadius: "6px",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
     fontSize: "0.875rem",
     fontWeight: 600,
     cursor: "pointer",
   },
   confirmDeleteBtn: {
-    padding: "0.5rem 1.25rem",
+    padding: "0.55rem 1.25rem",
     background: "#dc2626",
     color: "#fff",
     border: "none",
-    borderRadius: "6px",
+    borderRadius: "8px",
     fontSize: "0.875rem",
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
   },
 }
