@@ -4,6 +4,7 @@ import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { authMiddleware } from "./middleware/auth"
 import auth from "./routes/auth"
+import projects from "./routes/projects"
 
 type AppVariables = { user: { id: string; email: string; name: string } }
 
@@ -27,6 +28,7 @@ app.use("/api/*", async (c, next) => {
 
 app.get("/api/health", (c) => c.json({ status: "ok" }))
 app.route("/api/auth", auth)
+app.route("/api/projects", projects)
 
 app.notFound((c) => {
   return c.json({ error: { code: "NOT_FOUND", message: "Route not found." } }, 404)
