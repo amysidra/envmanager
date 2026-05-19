@@ -1,5 +1,6 @@
 export * from "./schemas/auth"
 export * from "./schemas/project"
+export * from "./schemas/member"
 
 export type Role = "OWNER" | "MEMBER"
 export type Severity = "high" | "medium" | "low"

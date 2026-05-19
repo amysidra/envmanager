@@ -5,6 +5,8 @@ import { logger } from "hono/logger"
 import { authMiddleware } from "./middleware/auth"
 import auth from "./routes/auth"
 import projects from "./routes/projects"
+import members from "./routes/members"
+import invitations from "./routes/invitations"
 
 type AppVariables = { user: { id: string; email: string; name: string } }
 
@@ -22,13 +24,15 @@ app.use(
 // Protect all /api/* routes — skip only auth endpoints and health check
 app.use("/api/*", async (c, next) => {
   const { path } = c.req
-  if (path.startsWith("/api/auth") || path === "/api/health") return next()
+  if (path.startsWith("/api/auth") || path === "/api/health" || path.startsWith("/api/invitations")) return next()
   return authMiddleware(c, next)
 })
 
 app.get("/api/health", (c) => c.json({ status: "ok" }))
 app.route("/api/auth", auth)
 app.route("/api/projects", projects)
+app.route("/api/projects/:id/members", members)
+app.route("/api/invitations", invitations)
 
 app.notFound((c) => {
   return c.json({ error: { code: "NOT_FOUND", message: "Route not found." } }, 404)

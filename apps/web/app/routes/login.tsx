@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { api } from "../lib/api"
 
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate()
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -23,6 +24,7 @@ function LoginPage() {
     setLoading(true)
     try {
       await api.post("/api/auth/login", { email, password })
+      await router.invalidate()
       navigate({ to: "/dashboard" })
     } catch (err: unknown) {
       const body = err as { message?: string }

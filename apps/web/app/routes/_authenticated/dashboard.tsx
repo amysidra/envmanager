@@ -1,30 +1,38 @@
-import { createFileRoute, Link, redirect, useNavigate, useRouteContext } from "@tanstack/react-router"
-import { useState } from "react"
+import { createFileRoute, Link, redirect, useNavigate, useRouter, useRouteContext } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 import { api } from "../../lib/api"
-import { $getProjects, type Project } from "../../lib/server-fns"
+import type { Project } from "../../lib/server-fns"
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   beforeLoad: ({ context }) => {
     if (!context.user) throw redirect({ to: "/login" })
   },
-  loader: () => $getProjects(),
-  staleTime: 0,
   component: Dashboard,
 })
 
 function Dashboard() {
   const navigate = useNavigate()
+  const router = useRouter()
   const { user } = useRouteContext({ from: "/_authenticated/dashboard" })
-  const initialProjects = Route.useLoaderData()
 
-  const [projects, setProjects] = useState<Project[]>(initialProjects)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(true)
   const [showModal, setShowModal] = useState(false)
+
+  useEffect(() => {
+    api
+      .get<Project[]>("/api/projects")
+      .then(setProjects)
+      .catch(() => {})
+      .finally(() => setLoadingProjects(false))
+  }, [])
   const [projectName, setProjectName] = useState("")
   const [formError, setFormError] = useState("")
   const [creating, setCreating] = useState(false)
 
   async function handleLogout() {
     await api.post("/api/auth/logout")
+    await router.invalidate()
     navigate({ to: "/login" })
   }
 
@@ -69,7 +77,11 @@ function Dashboard() {
           <button onClick={openModal} style={s.newBtn}>+ New Project</button>
         </div>
 
-        {projects.length === 0 ? (
+        {loadingProjects ? (
+          <div style={s.empty}>
+            <p style={s.emptyText}>Loading projects…</p>
+          </div>
+        ) : projects.length === 0 ? (
           <div style={s.empty}>
             <p style={s.emptyText}>No projects yet. Create your first project.</p>
           </div>
