@@ -7,6 +7,7 @@ import auth from "./routes/auth"
 import projects from "./routes/projects"
 import members from "./routes/members"
 import invitations from "./routes/invitations"
+import envFiles from "./routes/env"
 
 type AppVariables = { user: { id: string; email: string; name: string } }
 
@@ -32,6 +33,7 @@ app.get("/api/health", (c) => c.json({ status: "ok" }))
 app.route("/api/auth", auth)
 app.route("/api/projects", projects)
 app.route("/api/projects/:id/members", members)
+app.route("/api/projects/:id/env", envFiles)
 app.route("/api/invitations", invitations)
 
 app.notFound((c) => {
