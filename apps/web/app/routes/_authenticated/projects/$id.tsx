@@ -415,8 +415,8 @@ function ProjectDetail() {
 
       {/* Delete project modal */}
       {confirmDelete && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
+        <div style={s.overlay} onClick={() => { if (!deleting) setConfirmDelete(false) }}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={s.modalTitle}>Delete Project?</h3>
             <p style={s.modalBody}>
               This will permanently delete <strong>{project.name}</strong> and all associated env
@@ -438,8 +438,8 @@ function ProjectDetail() {
       {confirmRemoveId && (() => {
         const member = members.find((m) => m.id === confirmRemoveId)
         return (
-          <div style={s.overlay}>
-            <div style={s.modal}>
+          <div style={s.overlay} onClick={() => setConfirmRemoveId(null)}>
+            <div style={s.modal} onClick={(e) => e.stopPropagation()}>
               <h3 style={s.modalTitle}>Remove Member?</h3>
               <p style={s.modalBody}>
                 Remove <strong>{member?.name}</strong> ({member?.email}) from this project? They
@@ -460,8 +460,8 @@ function ProjectDetail() {
 
       {/* Logout modal */}
       {confirmLogout && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
+        <div style={s.overlay} onClick={() => setConfirmLogout(false)}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={s.modalTitle}>Logout?</h3>
             <p style={s.modalBody}>Are you sure you want to logout?</p>
             <div style={s.modalActions}>
@@ -478,8 +478,8 @@ function ProjectDetail() {
 
       {/* Delete env file modal */}
       {confirmDeleteEnv && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
+        <div style={s.overlay} onClick={() => { if (!deletingEnv) setConfirmDeleteEnv(false) }}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={s.modalTitle}>Delete Env File?</h3>
             <p style={s.modalBody}>
               This will permanently delete the env file and all associated scan results. This cannot

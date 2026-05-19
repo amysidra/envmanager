@@ -126,8 +126,8 @@ function Dashboard() {
 
       {/* New project modal */}
       {showModal && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
+        <div style={s.overlay} onClick={() => setShowModal(false)}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={s.modalTitle}>New project</h3>
             <p style={s.modalSub}>Give your project a name to get started.</p>
             <form onSubmit={handleCreate} style={s.form}>
@@ -169,8 +169,8 @@ function Dashboard() {
 
       {/* Logout modal */}
       {confirmLogout && (
-        <div style={s.overlay}>
-          <div style={s.modal}>
+        <div style={s.overlay} onClick={() => setConfirmLogout(false)}>
+          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={s.modalTitle}>Logout?</h3>
             <p style={s.modalSub}>Are you sure you want to logout?</p>
             <div style={s.modalActions}>
