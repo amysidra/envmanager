@@ -13,8 +13,8 @@ const auth = new Hono<{ Variables: Variables }>()
 const SESSION_COOKIE = "session"
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: true,
-  sameSite: "Strict" as const,
+  secure: process.env.USE_HTTPS === "true",
+  sameSite: "Lax" as const,
   path: "/",
   maxAge: 60 * 60 * 24 * 7,
 }
