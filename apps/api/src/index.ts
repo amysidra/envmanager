@@ -17,7 +17,12 @@ app.use("*", logger())
 app.use(
   "*",
   cors({
-    origin: (origin) => (!origin || origin.startsWith("http://localhost") ? origin : null),
+    origin: (origin) => {
+      if (!origin) return origin
+      if (origin.startsWith("http://localhost")) return origin
+      if (process.env.WEB_URL && origin === process.env.WEB_URL) return origin
+      return null
+    },
     credentials: true,
   }),
 )
