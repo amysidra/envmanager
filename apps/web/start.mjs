@@ -1,9 +1,38 @@
 import { createServer } from "node:http"
+import { createReadStream, existsSync, statSync } from "node:fs"
+import { join, extname } from "node:path"
+import { fileURLToPath } from "node:url"
 import server from "./dist/server/server.js"
 
+const __dirname = fileURLToPath(new URL(".", import.meta.url))
 const port = Number(process.env.PORT) || 3000
+const clientDir = join(__dirname, "dist/client")
+
+const mimeTypes = {
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".html": "text/html",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".json": "application/json",
+}
 
 const nodeServer = createServer(async (req, res) => {
+  const urlPath = req.url.split("?")[0]
+  const filePath = join(clientDir, urlPath)
+
+  if (existsSync(filePath) && statSync(filePath).isFile()) {
+    const ext = extname(filePath)
+    res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream")
+    createReadStream(filePath).pipe(res)
+    return
+  }
+
   const url = `http://${req.headers.host}${req.url}`
   const headers = new Headers()
   for (const [key, value] of Object.entries(req.headers)) {
