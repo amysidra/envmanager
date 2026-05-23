@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "pnpm with-env node --watch --import tsx/esm src/index.ts",
     "build": "prisma generate && tsc",
-    "start": "node dist/index.js",
+    "start": "dotenv -e .env -- node dist/index.js",
     "with-env": "dotenv -e .env --",
     "db:generate": "pnpm with-env prisma generate",
     "db:migrate": "pnpm with-env prisma migrate dev",
