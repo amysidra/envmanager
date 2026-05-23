@@ -2,12 +2,17 @@
   "name": "@envmanager/types",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
   },
   "dependencies": {
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
