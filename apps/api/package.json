@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "pnpm with-env node --watch --import tsx/esm src/index.ts",
+    "dev": "pnpm with-env node --watch --require tsx/cjs src/index.ts",
     "build": "prisma generate && tsc",
     "start": "dotenv -e .env -- node dist/index.js",
     "with-env": "dotenv -e .env --",

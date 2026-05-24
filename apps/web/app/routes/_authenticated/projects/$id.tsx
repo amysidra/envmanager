@@ -184,20 +184,13 @@ function ProjectDetail() {
     }
   }
 
-  async function handleDownloadEnv() {
+  function handleDownloadEnv() {
     const apiUrl = import.meta.env.VITE_API_URL as string
-    const res = await fetch(`${apiUrl}/api/projects/${id}/env/download`, {
-      credentials: "include",
-    })
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
-    a.href = url
-    a.download = ".env"
+    a.href = `${apiUrl}/api/projects/${id}/env/download`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   async function handleDeleteEnv() {

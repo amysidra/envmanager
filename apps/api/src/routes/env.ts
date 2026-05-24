@@ -75,7 +75,7 @@ envFiles.get("/download", async (c) => {
   if (!envFile) return c.json({ error: "NOT_FOUND", message: "No env file found" }, 404)
 
   const content = decrypt(envFile.encryptedContent, envFile.iv)
-  c.header("Content-Type", "text/plain")
+  c.header("Content-Type", "application/octet-stream")
   c.header("Content-Disposition", 'attachment; filename=".env"')
   c.header("Cache-Control", "no-store")
   return c.text(content)
