@@ -14,21 +14,37 @@ async function getMembership(projectId: string, userId: string) {
   })
 }
 
-// PUT /api/projects/:id/env
-envFiles.put("/", async (c) => {
+// GET /api/projects/:id/env — list all env files (metadata only)
+envFiles.get("/", async (c) => {
   const user = c.get("user")
   const projectId = c.req.param("id")!
 
   const membership = await getMembership(projectId, user.id)
   if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
-  // US-11 / FR-16 originally allowed any member to upload, but FR-15 (read-only for members)
-  // takes precedence for safety — a malicious member could wipe the env file.
+
+  const files = await prisma.envFile.findMany({
+    where: { projectId },
+    select: { id: true, name: true, projectId: true, createdAt: true, updatedAt: true },
+    orderBy: { createdAt: "asc" },
+  })
+
+  return c.json(files)
+})
+
+// POST /api/projects/:id/env — upload a new env file
+envFiles.post("/", async (c) => {
+  const user = c.get("user")
+  const projectId = c.req.param("id")!
+
+  const membership = await getMembership(projectId, user.id)
+  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
   if (membership.role !== "OWNER") {
-    return c.json({ error: "FORBIDDEN", message: "Only the owner can upload the env file" }, 403)
+    return c.json({ error: "FORBIDDEN", message: "Only the owner can upload env files" }, 403)
   }
 
   const contentType = c.req.header("content-type") ?? ""
   let content: string
+  let name = ".env"
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await c.req.formData()
@@ -39,6 +55,7 @@ envFiles.put("/", async (c) => {
     if ((file as File).size > MAX_BYTES) {
       return c.json({ error: "VALIDATION_ERROR", message: "File exceeds 100 KB limit" }, 400)
     }
+    name = (formData.get("name") as string) || (file as File).name || ".env"
     content = await (file as File).text()
   } else {
     const body = await c.req.json()
@@ -49,69 +66,137 @@ envFiles.put("/", async (c) => {
       return c.json({ error: "VALIDATION_ERROR", message: "Content exceeds 100 KB limit" }, 400)
     }
     content = body.content
+    if (typeof body.name === "string" && body.name.trim()) {
+      name = body.name.trim()
+    }
   }
 
   const { encryptedContent, iv } = encrypt(content)
 
-  const envFile = await prisma.envFile.upsert({
-    where: { projectId },
-    create: { projectId, uploadedById: user.id, encryptedContent, iv },
-    update: { encryptedContent, iv, uploadedById: user.id },
-    select: { id: true, projectId: true, createdAt: true, updatedAt: true },
+  const envFile = await prisma.envFile.create({
+    data: { projectId, name, uploadedById: user.id, encryptedContent, iv },
+    select: { id: true, name: true, projectId: true, createdAt: true, updatedAt: true },
   })
 
-  return c.json(envFile)
+  return c.json(envFile, 201)
 })
 
-// GET /api/projects/:id/env/download
-envFiles.get("/download", async (c) => {
+// GET /api/projects/:id/env/:fileId — get decrypted content of a specific file
+envFiles.get("/:fileId", async (c) => {
   const user = c.get("user")
   const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
 
   const membership = await getMembership(projectId, user.id)
   if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
 
-  const envFile = await prisma.envFile.findUnique({ where: { projectId } })
-  if (!envFile) return c.json({ error: "NOT_FOUND", message: "No env file found" }, 404)
-
-  const content = decrypt(envFile.encryptedContent, envFile.iv)
-  c.header("Content-Type", "application/octet-stream")
-  c.header("Content-Disposition", 'attachment; filename=".env"')
-  c.header("Cache-Control", "no-store")
-  return c.text(content)
-})
-
-// GET /api/projects/:id/env
-envFiles.get("/", async (c) => {
-  const user = c.get("user")
-  const projectId = c.req.param("id")!
-
-  const membership = await getMembership(projectId, user.id)
-  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
-
-  const envFile = await prisma.envFile.findUnique({ where: { projectId } })
-  if (!envFile) return c.json({ error: "NOT_FOUND", message: "No env file found" }, 404)
+  const envFile = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!envFile || envFile.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
 
   const content = decrypt(envFile.encryptedContent, envFile.iv)
   c.header("Cache-Control", "no-store")
   return c.json({ content })
 })
 
-// DELETE /api/projects/:id/env
-envFiles.delete("/", async (c) => {
+// PUT /api/projects/:id/env/:fileId — replace content of a specific file
+envFiles.put("/:fileId", async (c) => {
   const user = c.get("user")
   const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
 
   const membership = await getMembership(projectId, user.id)
   if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
   if (membership.role !== "OWNER") {
-    return c.json({ error: "FORBIDDEN", message: "Only the owner can delete the env file" }, 403)
+    return c.json({ error: "FORBIDDEN", message: "Only the owner can update env files" }, 403)
   }
 
-  const envFile = await prisma.envFile.findUnique({ where: { projectId } })
-  if (!envFile) return c.json({ error: "NOT_FOUND", message: "No env file found" }, 404)
+  const existing = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!existing || existing.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
 
-  await prisma.envFile.delete({ where: { projectId } })
+  const contentType = c.req.header("content-type") ?? ""
+  let content: string
+  let name = existing.name
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await c.req.formData()
+    const file = formData.get("file")
+    if (!file || typeof file === "string") {
+      return c.json({ error: "VALIDATION_ERROR", message: "No file provided" }, 400)
+    }
+    if ((file as File).size > MAX_BYTES) {
+      return c.json({ error: "VALIDATION_ERROR", message: "File exceeds 100 KB limit" }, 400)
+    }
+    if (formData.get("name")) name = formData.get("name") as string
+    content = await (file as File).text()
+  } else {
+    const body = await c.req.json()
+    if (typeof body.content !== "string") {
+      return c.json({ error: "VALIDATION_ERROR", message: "content is required" }, 400)
+    }
+    if (Buffer.byteLength(body.content, "utf8") > MAX_BYTES) {
+      return c.json({ error: "VALIDATION_ERROR", message: "Content exceeds 100 KB limit" }, 400)
+    }
+    content = body.content
+    if (typeof body.name === "string" && body.name.trim()) {
+      name = body.name.trim()
+    }
+  }
+
+  const { encryptedContent, iv } = encrypt(content)
+
+  const envFile = await prisma.envFile.update({
+    where: { id: fileId },
+    data: { encryptedContent, iv, name, uploadedById: user.id },
+    select: { id: true, name: true, projectId: true, createdAt: true, updatedAt: true },
+  })
+
+  return c.json(envFile)
+})
+
+// GET /api/projects/:id/env/:fileId/download — download a specific env file
+envFiles.get("/:fileId/download", async (c) => {
+  const user = c.get("user")
+  const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
+
+  const membership = await getMembership(projectId, user.id)
+  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
+
+  const envFile = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!envFile || envFile.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
+
+  const content = decrypt(envFile.encryptedContent, envFile.iv)
+  const filename = envFile.name.replace(/[^a-zA-Z0-9._-]/g, "_")
+  c.header("Content-Type", "application/octet-stream")
+  c.header("Content-Disposition", `attachment; filename="${filename}"`)
+  c.header("Cache-Control", "no-store")
+  return c.text(content)
+})
+
+// DELETE /api/projects/:id/env/:fileId — delete a specific env file
+envFiles.delete("/:fileId", async (c) => {
+  const user = c.get("user")
+  const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
+
+  const membership = await getMembership(projectId, user.id)
+  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
+  if (membership.role !== "OWNER") {
+    return c.json({ error: "FORBIDDEN", message: "Only the owner can delete env files" }, 403)
+  }
+
+  const envFile = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!envFile || envFile.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
+
+  await prisma.envFile.delete({ where: { id: fileId } })
   return c.json({ message: "Env file deleted" })
 })
 

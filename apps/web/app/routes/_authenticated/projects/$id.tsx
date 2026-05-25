@@ -16,6 +16,14 @@ type MemberItem = {
   joinedAt: string
 }
 
+type EnvFileMeta = {
+  id: string
+  name: string
+  projectId: string
+  createdAt: string
+  updatedAt: string
+}
+
 function ProjectDetail() {
   const navigate = useNavigate()
   const router = useRouter()
@@ -38,16 +46,24 @@ function ProjectDetail() {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
 
-  // Env file state
-  const [replacing, setReplacing] = useState(false)
-  const [envPaste, setEnvPaste] = useState("")
+  // Env files state
+  const [envFiles, setEnvFiles] = useState<EnvFileMeta[]>([])
+  const [loadingEnvFiles, setLoadingEnvFiles] = useState(true)
+  const [addingEnv, setAddingEnv] = useState(false)
+  const [newEnvName, setNewEnvName] = useState(".env")
+  const [newEnvPaste, setNewEnvPaste] = useState("")
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState("")
-  const [envContent, setEnvContent] = useState<string | null>(null)
-  const [envRevealed, setEnvRevealed] = useState(false)
-  const [loadingContent, setLoadingContent] = useState(false)
-  const [confirmDeleteEnv, setConfirmDeleteEnv] = useState(false)
-  const [deletingEnv, setDeletingEnv] = useState(false)
+  const [replacingFileId, setReplacingFileId] = useState<string | null>(null)
+  const [replaceEnvName, setReplaceEnvName] = useState("")
+  const [replaceEnvPaste, setReplaceEnvPaste] = useState("")
+  const [replaceError, setReplaceError] = useState("")
+  const [replacing, setReplacing] = useState(false)
+  const [revealedFileId, setRevealedFileId] = useState<string | null>(null)
+  const [fileContents, setFileContents] = useState<Record<string, string>>({})
+  const [loadingContentId, setLoadingContentId] = useState<string | null>(null)
+  const [confirmDeleteEnvId, setConfirmDeleteEnvId] = useState<string | null>(null)
+  const [deletingEnvId, setDeletingEnvId] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -63,6 +79,11 @@ function ProjectDetail() {
         .get<MemberItem[]>(`/api/projects/${id}/members`)
         .then(setMembers)
         .finally(() => setLoadingMembers(false))
+
+      api
+        .get<EnvFileMeta[]>(`/api/projects/${id}/env`)
+        .then(setEnvFiles)
+        .finally(() => setLoadingEnvFiles(false))
     }
   }, [id, loading, project])
 
@@ -120,46 +141,41 @@ function ProjectDetail() {
     }
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleNewFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 100 * 1024) {
-      setUploadError("File exceeds 100 KB limit")
-      return
-    }
+    if (file.size > 100 * 1024) { setUploadError("File exceeds 100 KB limit"); return }
     setUploadError("")
-    setEnvPaste(await file.text())
+    if (!newEnvName || newEnvName === ".env") setNewEnvName(file.name)
+    setNewEnvPaste(await file.text())
   }
 
-  async function handleFileDrop(e: React.DragEvent<HTMLDivElement>) {
+  async function handleNewFileDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
     if (!file) return
-    if (file.size > 100 * 1024) {
-      setUploadError("File exceeds 100 KB limit")
-      return
-    }
+    if (file.size > 100 * 1024) { setUploadError("File exceeds 100 KB limit"); return }
     setUploadError("")
-    setEnvPaste(await file.text())
+    if (!newEnvName || newEnvName === ".env") setNewEnvName(file.name)
+    setNewEnvPaste(await file.text())
   }
 
-  async function handleUploadEnv(e: React.SyntheticEvent<HTMLFormElement>) {
+  async function handleAddEnv(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    const content = envPaste.trim()
+    const content = newEnvPaste.trim()
     if (!content) { setUploadError("Content is required"); return }
     if (new TextEncoder().encode(content).length > 100 * 1024) {
-      setUploadError("Content exceeds 100 KB limit")
-      return
+      setUploadError("Content exceeds 100 KB limit"); return
     }
     setUploading(true)
     setUploadError("")
     try {
-      await api.put(`/api/projects/${id}/env`, { content })
+      const newFile = await api.post<EnvFileMeta>(`/api/projects/${id}/env`, { content, name: newEnvName || ".env" })
+      setEnvFiles((prev) => [...prev, newFile])
       setProject((prev) => (prev ? { ...prev, hasEnvFile: true } : prev))
-      setReplacing(false)
-      setEnvPaste("")
-      setEnvContent(null)
-      setEnvRevealed(false)
+      setAddingEnv(false)
+      setNewEnvName(".env")
+      setNewEnvPaste("")
     } catch (err) {
       setUploadError((err as { message?: string })?.message ?? "Upload failed")
     } finally {
@@ -167,43 +183,98 @@ function ProjectDetail() {
     }
   }
 
-  async function handleViewEnv() {
-    if (envContent !== null) {
-      setEnvRevealed((v) => !v)
-      return
+  async function handleReplaceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 100 * 1024) { setReplaceError("File exceeds 100 KB limit"); return }
+    setReplaceError("")
+    setReplaceEnvPaste(await file.text())
+  }
+
+  async function handleReplaceFileDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    if (file.size > 100 * 1024) { setReplaceError("File exceeds 100 KB limit"); return }
+    setReplaceError("")
+    setReplaceEnvPaste(await file.text())
+  }
+
+  async function handleReplaceEnv(e: React.SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!replacingFileId) return
+    const content = replaceEnvPaste.trim()
+    if (!content) { setReplaceError("Content is required"); return }
+    if (new TextEncoder().encode(content).length > 100 * 1024) {
+      setReplaceError("Content exceeds 100 KB limit"); return
     }
-    setLoadingContent(true)
+    setReplacing(true)
+    setReplaceError("")
     try {
-      const res = await api.get<{ content: string }>(`/api/projects/${id}/env`)
-      setEnvContent(res.content)
-      setEnvRevealed(true)
-    } catch {
-      // silent
+      const updated = await api.put<EnvFileMeta>(
+        `/api/projects/${id}/env/${replacingFileId}`,
+        { content, name: replaceEnvName || undefined },
+      )
+      setEnvFiles((prev) => prev.map((f) => (f.id === replacingFileId ? updated : f)))
+      setFileContents((prev) => { const next = { ...prev }; delete next[replacingFileId]; return next })
+      setRevealedFileId(null)
+      setReplacingFileId(null)
+      setReplaceEnvPaste("")
+      setReplaceEnvName("")
+    } catch (err) {
+      setReplaceError((err as { message?: string })?.message ?? "Replace failed")
     } finally {
-      setLoadingContent(false)
+      setReplacing(false)
     }
   }
 
-  function handleDownloadEnv() {
+  async function handleViewEnvFile(fileId: string) {
+    if (revealedFileId === fileId) {
+      setRevealedFileId(null)
+      return
+    }
+    if (fileContents[fileId] !== undefined) {
+      setRevealedFileId(fileId)
+      return
+    }
+    setLoadingContentId(fileId)
+    try {
+      const res = await api.get<{ content: string }>(`/api/projects/${id}/env/${fileId}`)
+      setFileContents((prev) => ({ ...prev, [fileId]: res.content }))
+      setRevealedFileId(fileId)
+    } catch {
+      // silent
+    } finally {
+      setLoadingContentId(null)
+    }
+  }
+
+  function handleDownloadEnvFile(fileId: string) {
     const apiUrl = import.meta.env.VITE_API_URL as string
     const a = document.createElement("a")
-    a.href = `${apiUrl}/api/projects/${id}/env/download`
+    a.href = `${apiUrl}/api/projects/${id}/env/${fileId}/download`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
   }
 
-  async function handleDeleteEnv() {
-    setDeletingEnv(true)
+  async function handleDeleteEnvFile() {
+    if (!confirmDeleteEnvId) return
+    setDeletingEnvId(confirmDeleteEnvId)
     try {
-      await api.del(`/api/projects/${id}/env`)
-      setProject((prev) => (prev ? { ...prev, hasEnvFile: false } : prev))
-      setEnvContent(null)
-      setEnvRevealed(false)
-      setConfirmDeleteEnv(false)
+      await api.del(`/api/projects/${id}/env/${confirmDeleteEnvId}`)
+      setEnvFiles((prev) => {
+        const next = prev.filter((f) => f.id !== confirmDeleteEnvId)
+        setProject((p) => (p ? { ...p, hasEnvFile: next.length > 0 } : p))
+        return next
+      })
+      setFileContents((prev) => { const next = { ...prev }; delete next[confirmDeleteEnvId!]; return next })
+      if (revealedFileId === confirmDeleteEnvId) setRevealedFileId(null)
+      setConfirmDeleteEnvId(null)
     } catch {
-      setDeletingEnv(false)
-      setConfirmDeleteEnv(false)
+      // keep state
+    } finally {
+      setDeletingEnvId(null)
     }
   }
 
@@ -302,99 +373,166 @@ function ProjectDetail() {
             {inviteError && <p style={s.errorMsg}>{inviteError}</p>}
           </div>
 
-          {/* Env File card */}
+          {/* Env Files card */}
           <div style={s.card}>
-            <h3 style={s.cardTitle}>Env File</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h3 style={{ ...s.cardTitle, margin: 0 }}>Env Files</h3>
+              {isOwner && !addingEnv && (
+                <button
+                  onClick={() => { setAddingEnv(true); setNewEnvName(".env"); setNewEnvPaste(""); setUploadError("") }}
+                  style={s.addEnvBtn}
+                >
+                  + Add file
+                </button>
+              )}
+            </div>
 
-            {!project.hasEnvFile || replacing ? (
-              isOwner ? (
-                <>
-                  {replacing && (
-                    <p style={s.replaceWarning}>This will overwrite the existing file.</p>
-                  )}
-                  <form
-                    onSubmit={handleUploadEnv}
-                    style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+            {/* Add new env file form */}
+            {addingEnv && (
+              <div style={s.addEnvForm}>
+                <form onSubmit={handleAddEnv} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  <input
+                    type="text"
+                    placeholder="File name (e.g. .env.production)"
+                    value={newEnvName}
+                    onChange={(e) => setNewEnvName(e.target.value)}
+                    style={s.inviteInput}
+                  />
+                  <div
+                    style={s.dropzone}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleNewFileDrop}
                   >
-                    <div
-                      style={s.dropzone}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleFileDrop}
-                    >
-                      <p style={s.dropzoneText}>Drag & drop .env file here, or</p>
-                      <label style={s.fileLabel}>
-                        Browse file
-                        <input
-                          type="file"
-                          accept=".env"
-                          onChange={handleFileChange}
-                          style={{ display: "none" }}
-                        />
-                      </label>
-                    </div>
-                    <textarea
-                      placeholder="...or paste .env content here"
-                      value={envPaste}
-                      onChange={(e) => setEnvPaste(e.target.value)}
-                      rows={6}
-                      style={s.textarea}
-                    />
-                    {uploadError && <p style={s.errorMsg}>{uploadError}</p>}
-                    <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                      {replacing && (
-                        <button
-                          type="button"
-                          onClick={() => { setReplacing(false); setEnvPaste(""); setUploadError("") }}
-                          style={s.cancelBtn}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={uploading || !envPaste.trim()}
-                        style={s.inviteBtn}
-                      >
-                        {uploading ? "Uploading…" : replacing ? "Replace" : "Upload"}
-                      </button>
-                    </div>
-                  </form>
-                </>
-              ) : (
-                <p style={s.hint}>No env file uploaded yet.</p>
-              )
-            ) : (
-              <>
-                <p style={s.envUploaded}>● Env file uploaded</p>
-                <div style={s.envActions}>
-                  <button onClick={handleViewEnv} disabled={loadingContent} style={s.envActionBtn}>
-                    {loadingContent
-                      ? "Loading…"
-                      : envContent !== null && envRevealed
-                        ? "Hide"
-                        : "View"}
-                  </button>
-                  <button onClick={handleDownloadEnv} style={s.envActionBtn}>Download</button>
-                  {isOwner && (
+                    <p style={s.dropzoneText}>Drag & drop .env file here, or</p>
+                    <label style={s.fileLabel}>
+                      Browse file
+                      <input type="file" onChange={handleNewFileChange} style={{ display: "none" }} />
+                    </label>
+                  </div>
+                  <textarea
+                    placeholder="...or paste .env content here"
+                    value={newEnvPaste}
+                    onChange={(e) => setNewEnvPaste(e.target.value)}
+                    rows={5}
+                    style={s.textarea}
+                  />
+                  {uploadError && <p style={s.errorMsg}>{uploadError}</p>}
+                  <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
                     <button
-                      onClick={() => { setReplacing(true); setEnvPaste(""); setUploadError("") }}
-                      style={s.envActionBtn}
+                      type="button"
+                      onClick={() => { setAddingEnv(false); setUploadError("") }}
+                      style={s.cancelBtn}
                     >
-                      Replace
+                      Cancel
                     </button>
-                  )}
-                  {isOwner && (
-                    <button onClick={() => setConfirmDeleteEnv(true)} style={s.deleteEnvBtn}>
-                      Delete
+                    <button type="submit" disabled={uploading || !newEnvPaste.trim()} style={s.inviteBtn}>
+                      {uploading ? "Uploading…" : "Upload"}
                     </button>
-                  )}
-                </div>
-                {envContent !== null && envRevealed && (
-                  <pre style={{ ...s.codeBlock, marginTop: "0.75rem" }}>
-                    {envContent}
-                  </pre>
-                )}
-              </>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* List of env files */}
+            {loadingEnvFiles ? (
+              <p style={s.hint}>Loading…</p>
+            ) : envFiles.length === 0 && !addingEnv ? (
+              <p style={s.hint}>No env files uploaded yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {envFiles.map((file) => (
+                  <div key={file.id}>
+                    {/* Replace form for this file */}
+                    {replacingFileId === file.id ? (
+                      <div style={s.replaceBox}>
+                        <p style={s.replaceWarning}>Replacing: <strong>{file.name}</strong></p>
+                        <form onSubmit={handleReplaceEnv} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                          <input
+                            type="text"
+                            placeholder="File name"
+                            value={replaceEnvName || file.name}
+                            onChange={(e) => setReplaceEnvName(e.target.value)}
+                            style={s.inviteInput}
+                          />
+                          <div
+                            style={s.dropzone}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleReplaceFileDrop}
+                          >
+                            <p style={s.dropzoneText}>Drag & drop .env file here, or</p>
+                            <label style={s.fileLabel}>
+                              Browse file
+                              <input type="file" onChange={handleReplaceFileChange} style={{ display: "none" }} />
+                            </label>
+                          </div>
+                          <textarea
+                            placeholder="...or paste .env content here"
+                            value={replaceEnvPaste}
+                            onChange={(e) => setReplaceEnvPaste(e.target.value)}
+                            rows={5}
+                            style={s.textarea}
+                          />
+                          {replaceError && <p style={s.errorMsg}>{replaceError}</p>}
+                          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                            <button
+                              type="button"
+                              onClick={() => { setReplacingFileId(null); setReplaceEnvPaste(""); setReplaceEnvName(""); setReplaceError("") }}
+                              style={s.cancelBtn}
+                            >
+                              Cancel
+                            </button>
+                            <button type="submit" disabled={replacing || !replaceEnvPaste.trim()} style={s.inviteBtn}>
+                              {replacing ? "Saving…" : "Save"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    ) : (
+                      <div style={s.envFileRow}>
+                        <div style={s.envFileInfo}>
+                          <span style={s.envFileName}>{file.name}</span>
+                          <span style={s.envFileDate}>{new Date(file.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                        <div style={s.envActions}>
+                          <button
+                            onClick={() => handleViewEnvFile(file.id)}
+                            disabled={loadingContentId === file.id}
+                            style={s.envActionBtn}
+                          >
+                            {loadingContentId === file.id ? "…" : revealedFileId === file.id ? "Hide" : "View"}
+                          </button>
+                          <button onClick={() => handleDownloadEnvFile(file.id)} style={s.envActionBtn}>Download</button>
+                          {isOwner && (
+                            <button
+                              onClick={() => {
+                                setReplacingFileId(file.id)
+                                setReplaceEnvName(file.name)
+                                setReplaceEnvPaste("")
+                                setReplaceError("")
+                              }}
+                              style={s.envActionBtn}
+                            >
+                              Replace
+                            </button>
+                          )}
+                          {isOwner && (
+                            <button onClick={() => setConfirmDeleteEnvId(file.id)} style={s.deleteEnvBtn}>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline content viewer */}
+                    {revealedFileId === file.id && fileContents[file.id] !== undefined && (
+                      <pre style={{ ...s.codeBlock, marginTop: "0.5rem" }}>
+                        {fileContents[file.id]}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -470,29 +608,31 @@ function ProjectDetail() {
       )}
 
       {/* Delete env file modal */}
-      {confirmDeleteEnv && (
-        <div style={s.overlay} onClick={() => { if (!deletingEnv) setConfirmDeleteEnv(false) }}>
-          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 style={s.modalTitle}>Delete Env File?</h3>
-            <p style={s.modalBody}>
-              This will permanently delete the env file and all associated scan results. This cannot
-              be undone.
-            </p>
-            <div style={s.modalActions}>
-              <button
-                onClick={() => setConfirmDeleteEnv(false)}
-                style={s.cancelBtn}
-                disabled={deletingEnv}
-              >
-                Cancel
-              </button>
-              <button onClick={handleDeleteEnv} style={s.confirmDeleteBtn} disabled={deletingEnv}>
-                {deletingEnv ? "Deleting…" : "Yes, Delete"}
-              </button>
+      {confirmDeleteEnvId && (() => {
+        const file = envFiles.find((f) => f.id === confirmDeleteEnvId)
+        return (
+          <div style={s.overlay} onClick={() => { if (!deletingEnvId) setConfirmDeleteEnvId(null) }}>
+            <div style={s.modal} onClick={(e) => e.stopPropagation()}>
+              <h3 style={s.modalTitle}>Delete Env File?</h3>
+              <p style={s.modalBody}>
+                Permanently delete <strong>{file?.name}</strong>? This cannot be undone.
+              </p>
+              <div style={s.modalActions}>
+                <button
+                  onClick={() => setConfirmDeleteEnvId(null)}
+                  style={s.cancelBtn}
+                  disabled={!!deletingEnvId}
+                >
+                  Cancel
+                </button>
+                <button onClick={handleDeleteEnvFile} style={s.confirmDeleteBtn} disabled={!!deletingEnvId}>
+                  {deletingEnvId ? "Deleting…" : "Yes, Delete"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -658,7 +798,43 @@ const s: Record<string, React.CSSProperties> = {
   successMsg: { margin: "0.625rem 0 0", fontSize: "0.8rem", color: "#16a34a" },
   errorMsg: { margin: "0.625rem 0 0", fontSize: "0.8rem", color: "#dc2626" },
 
-  // Env file
+  // Env files
+  addEnvBtn: {
+    padding: "0.35rem 0.875rem",
+    background: "#111827",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  addEnvForm: {
+    background: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+    padding: "1rem",
+    marginBottom: "1rem",
+  },
+  envFileRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.625rem 0",
+    borderBottom: "1px solid #f3f4f6",
+    flexWrap: "wrap" as const,
+  },
+  envFileInfo: { display: "flex", flexDirection: "column" as const, gap: "0.1rem" },
+  envFileName: { fontSize: "0.85rem", fontWeight: 600, color: "#111827", fontFamily: "monospace" },
+  envFileDate: { fontSize: "0.72rem", color: "#d1d5db" },
+  replaceBox: {
+    background: "#fffbeb",
+    border: "1px solid #fde68a",
+    borderRadius: "10px",
+    padding: "1rem",
+    marginBottom: "0.5rem",
+  },
   dropzone: {
     border: "2px dashed #e5e7eb",
     borderRadius: "10px",

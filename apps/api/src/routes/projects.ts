@@ -12,7 +12,7 @@ projects.get("/", async (c) => {
   const memberships = await prisma.projectMember.findMany({
     where: { userId: user.id },
     include: {
-      project: { include: { envFile: { select: { id: true } } } },
+      project: { include: { envFiles: { select: { id: true } } } },
     },
   })
 
@@ -22,7 +22,7 @@ projects.get("/", async (c) => {
       name: project.name,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      hasEnvFile: project.envFile !== null,
+      hasEnvFile: project.envFiles.length > 0,
       role,
     })),
   )
@@ -56,7 +56,7 @@ projects.get("/:id", async (c) => {
   const membership = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId: id, userId: user.id } },
     include: {
-      project: { include: { envFile: { select: { id: true } } } },
+      project: { include: { envFiles: { select: { id: true } } } },
     },
   })
 
@@ -68,7 +68,7 @@ projects.get("/:id", async (c) => {
     name: project.name,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
-    hasEnvFile: project.envFile !== null,
+    hasEnvFile: project.envFiles.length > 0,
     role,
   })
 })

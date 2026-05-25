@@ -32,7 +32,7 @@ model Project {
   updatedAt DateTime @updatedAt
 
   members     ProjectMember[]
-  envFile     EnvFile?
+  envFiles    EnvFile[]
   invitations Invitation[]
 }
 
@@ -51,7 +51,8 @@ model ProjectMember {
 
 model EnvFile {
   id               String   @id @default(uuid())
-  projectId        String   @unique
+  projectId        String
+  name             String   @default(".env")
   uploadedById     String
   encryptedContent String
   iv               String
