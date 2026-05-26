@@ -12,9 +12,6 @@ dist/
 .vinxi/
 .tanstack/
 
-# Prisma
-apps/api/prisma/migrations/
-
 # OS
 .DS_Store
 Thumbs.db
