@@ -6,7 +6,7 @@
     "dev": "pnpm with-env node --watch --require tsx/cjs src/index.ts",
     "build": "prisma generate && tsc",
     "start": "dotenv -e .env -- node dist/index.js",
-    "with-env": "dotenv -e .env --",
+    "with-env": "dotenv -e .env -e .env.local --",
     "db:generate": "pnpm with-env prisma generate",
     "db:migrate": "pnpm with-env prisma migrate dev",
     "db:studio": "pnpm with-env prisma studio"
