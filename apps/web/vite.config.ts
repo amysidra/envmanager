@@ -3,4 +3,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 
 export default defineConfig({
   plugins: [tanstackStart({ srcDirectory: "app", tsr: { appDirectory: "app" } })],
+  server: {
+    allowedHosts: ["envm.skypiproject.com"],
+  },
 })
