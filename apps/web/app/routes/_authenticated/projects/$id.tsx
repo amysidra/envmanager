@@ -24,6 +24,20 @@ type EnvFileMeta = {
   updatedAt: string
 }
 
+type Warning = {
+  variable: string
+  severity: "high" | "medium" | "low"
+  issue: string
+  recommendation: string
+}
+
+type ScanResultData = {
+  id: string
+  warnings: Warning[]
+  summary: { high: number; medium: number; low: number; total: number }
+  scannedAt: string
+}
+
 function ProjectDetail() {
   const navigate = useNavigate()
   const router = useRouter()
@@ -65,6 +79,12 @@ function ProjectDetail() {
   const [confirmDeleteEnvId, setConfirmDeleteEnvId] = useState<string | null>(null)
   const [deletingEnvId, setDeletingEnvId] = useState<string | null>(null)
 
+  // Scan state
+  const [scanResults, setScanResults] = useState<Record<string, ScanResultData>>({})
+  const [scanningFileId, setScanningFileId] = useState<string | null>(null)
+  const [scanErrors, setScanErrors] = useState<Record<string, string>>({})
+  const [expandedScanFileId, setExpandedScanFileId] = useState<string | null>(null)
+
   useEffect(() => {
     api
       .get<Project>(`/api/projects/${id}`)
@@ -82,7 +102,15 @@ function ProjectDetail() {
 
       api
         .get<EnvFileMeta[]>(`/api/projects/${id}/env`)
-        .then(setEnvFiles)
+        .then((files) => {
+          setEnvFiles(files)
+          files.forEach((file) => {
+            api
+              .get<ScanResultData>(`/api/projects/${id}/env/${file.id}/scan`)
+              .then((result) => setScanResults((prev) => ({ ...prev, [file.id]: result })))
+              .catch(() => {})
+          })
+        })
         .finally(() => setLoadingEnvFiles(false))
     }
   }, [id, loading, project])
@@ -275,6 +303,20 @@ function ProjectDetail() {
       // keep state
     } finally {
       setDeletingEnvId(null)
+    }
+  }
+
+  async function handleScan(fileId: string) {
+    setScanningFileId(fileId)
+    setScanErrors((prev) => { const next = { ...prev }; delete next[fileId]; return next })
+    try {
+      const result = await api.post<ScanResultData>(`/api/projects/${id}/env/${fileId}/scan`)
+      setScanResults((prev) => ({ ...prev, [fileId]: result }))
+      setExpandedScanFileId(fileId)
+    } catch (err) {
+      setScanErrors((prev) => ({ ...prev, [fileId]: (err as { message?: string })?.message ?? "Scan failed. Please try again." }))
+    } finally {
+      setScanningFileId(null)
     }
   }
 
@@ -502,6 +544,13 @@ function ProjectDetail() {
                             {loadingContentId === file.id ? "…" : revealedFileId === file.id ? "Hide" : "View"}
                           </button>
                           <button onClick={() => handleDownloadEnvFile(file.id)} style={s.envActionBtn}>Download</button>
+                          <button
+                            onClick={() => handleScan(file.id)}
+                            disabled={scanningFileId === file.id}
+                            style={s.scanBtn}
+                          >
+                            {scanningFileId === file.id ? "Scanning…" : "Scan"}
+                          </button>
                           {isOwner && (
                             <button
                               onClick={() => {
@@ -530,6 +579,70 @@ function ProjectDetail() {
                         {fileContents[file.id]}
                       </pre>
                     )}
+
+                    {/* Scan error */}
+                    {scanErrors[file.id] && (
+                      <p style={{ ...s.errorMsg, marginTop: "0.5rem" }}>{scanErrors[file.id]}</p>
+                    )}
+
+                    {/* Scan results inline */}
+                    {scanResults[file.id] && (
+                      <div style={s.scanResultsBox}>
+                        <div style={s.scanSummaryBar}>
+                          <button
+                            onClick={() => setExpandedScanFileId(expandedScanFileId === file.id ? null : file.id)}
+                            style={s.scanSummaryToggle}
+                          >
+                            {expandedScanFileId === file.id ? "▾" : "▸"}
+                          </button>
+                          <span style={s.scanSummaryLabel}>Last scan:</span>
+                          {scanResults[file.id].summary.high > 0 && (
+                            <span style={s.badgeHigh}>{scanResults[file.id].summary.high} High</span>
+                          )}
+                          {scanResults[file.id].summary.medium > 0 && (
+                            <span style={s.badgeMedium}>{scanResults[file.id].summary.medium} Medium</span>
+                          )}
+                          {scanResults[file.id].summary.low > 0 && (
+                            <span style={s.badgeLow}>{scanResults[file.id].summary.low} Low</span>
+                          )}
+                          {scanResults[file.id].summary.total === 0 && (
+                            <span style={s.badgeClean}>No issues found</span>
+                          )}
+                          <span style={s.scanDate}>
+                            {new Date(scanResults[file.id].scannedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        {expandedScanFileId === file.id && (
+                          <div style={s.warningsList}>
+                            {scanResults[file.id].warnings.length === 0 ? (
+                              <p style={s.hint}>No security issues detected.</p>
+                            ) : (
+                              scanResults[file.id].warnings.map((w, i) => (
+                                <div key={i} style={s.warningCard}>
+                                  <div style={s.warningHeader}>
+                                    <code style={s.warningVariable}>{w.variable}</code>
+                                    <span style={w.severity === "high" ? s.badgeHigh : w.severity === "medium" ? s.badgeMedium : s.badgeLow}>
+                                      {w.severity}
+                                    </span>
+                                  </div>
+                                  <p style={s.warningIssue}>{w.issue}</p>
+                                  <p style={s.warningRec}>
+                                    <strong>Fix:</strong> {w.recommendation}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Scanning spinner */}
+                    {scanningFileId === file.id && (
+                      <p style={{ ...s.hint, marginTop: "0.5rem", fontStyle: "italic" }}>
+                        Running security scan… this may take up to 15 seconds.
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -538,8 +651,33 @@ function ProjectDetail() {
 
           {/* Scan Results card */}
           <div style={s.card}>
-            <h3 style={s.cardTitle}>Scan Results</h3>
-            <p style={s.hint}>No scans yet.</p>
+            <h3 style={s.cardTitle}>Security Scan Summary</h3>
+            {Object.keys(scanResults).length === 0 ? (
+              <p style={s.hint}>
+                No scans yet. Click <strong>Scan</strong> on an env file above to run a security scan.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {envFiles
+                  .filter((f) => scanResults[f.id])
+                  .map((file) => {
+                    const result = scanResults[file.id]
+                    const total = result.summary.total
+                    return (
+                      <div key={file.id} style={s.scanSummaryCard}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" as const }}>
+                          <code style={s.envFileName}>{file.name}</code>
+                          {result.summary.high > 0 && <span style={s.badgeHigh}>{result.summary.high} High</span>}
+                          {result.summary.medium > 0 && <span style={s.badgeMedium}>{result.summary.medium} Medium</span>}
+                          {result.summary.low > 0 && <span style={s.badgeLow}>{result.summary.low} Low</span>}
+                          {total === 0 && <span style={s.badgeClean}>Clean</span>}
+                        </div>
+                        <span style={s.scanDate}>{new Date(result.scannedAt).toLocaleString()}</span>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -921,6 +1059,118 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.65,
   },
   hint: { margin: 0, fontSize: "0.85rem", color: "#9ca3af" },
+
+  // Scan
+  scanBtn: {
+    padding: "0.4rem 0.875rem",
+    background: "#f0fdf4",
+    color: "#15803d",
+    border: "1px solid #bbf7d0",
+    borderRadius: "8px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  scanResultsBox: {
+    marginTop: "0.625rem",
+    border: "1px solid #e5e7eb",
+    borderRadius: "10px",
+    overflow: "hidden",
+  },
+  scanSummaryBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    padding: "0.5rem 0.75rem",
+    background: "#f9fafb",
+    flexWrap: "wrap" as const,
+  },
+  scanSummaryToggle: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "0.8rem",
+    color: "#6b7280",
+    padding: "0 0.25rem",
+  },
+  scanSummaryLabel: { fontSize: "0.75rem", color: "#9ca3af" },
+  scanDate: { fontSize: "0.7rem", color: "#d1d5db", marginLeft: "auto" },
+  warningsList: {
+    padding: "0.75rem",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.625rem",
+  },
+  warningCard: {
+    background: "#fff",
+    border: "1px solid #f3f4f6",
+    borderRadius: "8px",
+    padding: "0.75rem",
+  },
+  warningHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginBottom: "0.35rem",
+  },
+  warningVariable: {
+    fontFamily: "ui-monospace, monospace",
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    color: "#111827",
+    background: "#f3f4f6",
+    padding: "0.1rem 0.4rem",
+    borderRadius: "4px",
+  },
+  warningIssue: { margin: "0 0 0.35rem", fontSize: "0.8rem", color: "#374151" },
+  warningRec: { margin: 0, fontSize: "0.78rem", color: "#6b7280" },
+  badgeHigh: {
+    padding: "0.15rem 0.5rem",
+    background: "#fef2f2",
+    color: "#dc2626",
+    borderRadius: "99px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    border: "1px solid #fecaca",
+  },
+  badgeMedium: {
+    padding: "0.15rem 0.5rem",
+    background: "#fffbeb",
+    color: "#d97706",
+    borderRadius: "99px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    border: "1px solid #fde68a",
+  },
+  badgeLow: {
+    padding: "0.15rem 0.5rem",
+    background: "#eff6ff",
+    color: "#2563eb",
+    borderRadius: "99px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    border: "1px solid #bfdbfe",
+  },
+  badgeClean: {
+    padding: "0.15rem 0.5rem",
+    background: "#f0fdf4",
+    color: "#15803d",
+    borderRadius: "99px",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    border: "1px solid #bbf7d0",
+  },
+  scanSummaryCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0.625rem 0.75rem",
+    background: "#f9fafb",
+    borderRadius: "8px",
+    border: "1px solid #f3f4f6",
+    flexWrap: "wrap" as const,
+    gap: "0.5rem",
+  },
 
   // Modals
   overlay: {

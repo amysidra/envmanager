@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { prisma } from "../lib/prisma"
 import { encrypt, decrypt } from "../lib/crypto"
+import { scanEnvContent, type Warning } from "../lib/scanner"
 
 type Variables = { user: { id: string; email: string; name: string } }
 
@@ -198,6 +199,74 @@ envFiles.delete("/:fileId", async (c) => {
 
   await prisma.envFile.delete({ where: { id: fileId } })
   return c.json({ message: "Env file deleted" })
+})
+
+// POST /api/projects/:id/env/:fileId/scan — trigger AI security scan
+envFiles.post("/:fileId/scan", async (c) => {
+  const user = c.get("user")
+  const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
+
+  const membership = await getMembership(projectId, user.id)
+  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
+
+  const envFile = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!envFile || envFile.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
+
+  let warnings: Warning[]
+  try {
+    const content = decrypt(envFile.encryptedContent, envFile.iv)
+    warnings = await scanEnvContent(content)
+  } catch {
+    return c.json({ error: "INTERNAL_ERROR", message: "Security scan failed. Please try again." }, 500)
+  }
+
+  const summary = {
+    high: warnings.filter((w) => w.severity === "high").length,
+    medium: warnings.filter((w) => w.severity === "medium").length,
+    low: warnings.filter((w) => w.severity === "low").length,
+    total: warnings.length,
+  }
+
+  const scanResult = await prisma.scanResult.upsert({
+    where: { envFileId: fileId },
+    create: { envFileId: fileId, triggeredById: user.id, warnings },
+    update: { triggeredById: user.id, warnings, scannedAt: new Date() },
+  })
+
+  return c.json({ id: scanResult.id, warnings, summary, scannedAt: scanResult.scannedAt })
+})
+
+// GET /api/projects/:id/env/:fileId/scan — get last scan result
+envFiles.get("/:fileId/scan", async (c) => {
+  const user = c.get("user")
+  const projectId = c.req.param("id")!
+  const fileId = c.req.param("fileId")!
+
+  const membership = await getMembership(projectId, user.id)
+  if (!membership) return c.json({ error: "FORBIDDEN", message: "Access denied" }, 403)
+
+  const envFile = await prisma.envFile.findUnique({ where: { id: fileId } })
+  if (!envFile || envFile.projectId !== projectId) {
+    return c.json({ error: "NOT_FOUND", message: "Env file not found" }, 404)
+  }
+
+  const scanResult = await prisma.scanResult.findUnique({ where: { envFileId: fileId } })
+  if (!scanResult) {
+    return c.json({ error: "NOT_FOUND", message: "No scan results found" }, 404)
+  }
+
+  const warnings = scanResult.warnings as Warning[]
+  const summary = {
+    high: warnings.filter((w) => w.severity === "high").length,
+    medium: warnings.filter((w) => w.severity === "medium").length,
+    low: warnings.filter((w) => w.severity === "low").length,
+    total: warnings.length,
+  }
+
+  return c.json({ id: scanResult.id, warnings, summary, scannedAt: scanResult.scannedAt })
 })
 
 export default envFiles

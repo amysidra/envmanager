@@ -28,6 +28,9 @@ importers:
       hono:
         specifier: ^4.12.19
         version: 4.12.19
+      openai:
+        specifier: ^6.39.0
+        version: 6.39.0(zod@4.4.3)
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -1294,6 +1297,18 @@ packages:
 
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
+
+  openai@6.39.0:
+    resolution: {integrity: sha512-O61LIsimY3acVabwvomwFhwrnN36yvHY2quIfy9keEcFytGgWeV35yLHQ6NVMLSBxRpHmcg2yuhCnlu2HT4pLQ==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   parse5-htmlparser2-tree-adapter@7.1.0:
     resolution: {integrity: sha512-ruw5xyKs6lrpo9x9rCZqZZnIUntICjQAd0Wsmp396Ul9lN/h+ifgVV1x1gZHi8euej6wTfpqX8j+BFQxF0NS/g==}
@@ -2819,6 +2834,10 @@ snapshots:
       boolbase: 1.0.0
 
   ohash@2.0.11: {}
+
+  openai@6.39.0(zod@4.4.3):
+    optionalDependencies:
+      zod: 4.4.3
 
   parse5-htmlparser2-tree-adapter@7.1.0:
     dependencies:
