@@ -175,7 +175,7 @@ function Dashboard() {
             <p style={s.modalSub}>Are you sure you want to logout?</p>
             <div style={s.modalActions}>
               <button onClick={() => setConfirmLogout(false)} style={s.cancelBtn}>Cancel</button>
-              <button onClick={handleLogout} style={s.submitBtn}>Yes, logout</button>
+              <button onClick={handleLogout} style={s.confirmDeleteBtn}>Yes, logout</button>
             </div>
           </div>
         </div>
@@ -396,6 +396,16 @@ const s: Record<string, React.CSSProperties> = {
   submitBtn: {
     padding: "0.55rem 1.25rem",
     background: "#111827",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "0.875rem",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  confirmDeleteBtn: {
+    padding: "0.55rem 1.25rem",
+    background: "#dc2626",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
